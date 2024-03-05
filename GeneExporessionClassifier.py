@@ -5,7 +5,7 @@
 # 4) Print output and conclude
 
 ## Dependencies
-import Pydna
+import pydna
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
