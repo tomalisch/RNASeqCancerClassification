@@ -14,7 +14,10 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.models import load_model
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
+from imblearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
@@ -36,11 +39,24 @@ yData.dropna(inplace=True)
 yData.drop(columns=["Unnamed: 0"], inplace=True)
 
 # Split data into train, validation, and test at 80-10-10
-X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.2 )
+X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.3 )
 X_test, X_val, Y_test, Y_val = train_test_split( X_test, Y_test, test_size=0.5)
 
 # Balance classes using synthetic minority oversampling
 sm = SMOTE(random_state=2)
 X_train, Y_train = sm.fit_resample(X_train, Y_train)
 
+# Model parameters for pipeline
+stdsc = StandardScaler()
+lr = LogisticRegression()
+rf = RandomForestClassifier()
+gb = GradientBoostingClassifier()
 
+# Scale training data using pipeline (manually testing different models)
+pipe = Pipeline( [ ('stdsc', stdsc), ('gb', gb) ] )
+
+# Use pipeline to train model
+pipe.fit( X_train, Y_train )
+
+# Get accuracy on test data
+pipe.score(X_test, Y_test)
