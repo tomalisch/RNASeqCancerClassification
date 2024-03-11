@@ -43,7 +43,7 @@ X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.3
 
 ## Create function for cross validation pipeline
 def grid_pipe(clf, X, Y, params):
-    pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', stdsc), ('classifier', clf) ])
+    pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifier', clf) ])
     score = { 'AUC':'roc_auc', 
            'RECALL':'recall',
            'PRECISION':'precision',
