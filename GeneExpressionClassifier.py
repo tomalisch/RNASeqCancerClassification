@@ -11,17 +11,16 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-import tensorflow as tf
-import tensorflow.keras.backend as K
-from tensorflow.keras.models import load_model
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
+from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline
+from sklearn.decomposition import NMF, PCA
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler, MinMaxScaler
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.svm import LinearSVC
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
-from imblearn.over_sampling import SMOTE
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, roc_auc_score, precision_score, recall_score, f1_score
 
 
 # Load in data .csv as dataframes
@@ -45,6 +44,7 @@ X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.3
 def grid_pipe(clf, X, Y, params):
     pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifier', clf) ])
     score = { 'AUC':'roc_auc', 
+             'ACCURACY':'accuracy',
            'RECALL':'recall',
            'PRECISION':'precision',
            'F1':'f1' }
@@ -64,6 +64,11 @@ classifiers = [('Logistic Regression',
                      warm_start=False)),
  ('RandomForest',
   RandomForestClassifier()),
+
+  ('SVM',
+   LinearSVC()
+      
+  )
 
  ('Gradient Boosting Classifier',
   GradientBoostingClassifier(criterion='friedman_mse', init=None,
