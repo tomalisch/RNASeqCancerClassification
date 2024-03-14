@@ -37,8 +37,8 @@ xData.drop(columns=["Unnamed: 0"], inplace=True)
 yData.dropna(inplace=True)
 yData.drop(columns=["Unnamed: 0"], inplace=True)
 
-# Split data into train and test sets (80/20 split)
-X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.3 )
+# Split data into train and test sets (70/30 split)
+X_train, X_test, Y_train, Y_test = train_test_split( xData, np.ravel(yData), test_size=0.3 )
 
 # Initialize classifier object for parameter optimization grid search
 gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
@@ -62,7 +62,7 @@ pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifi
 
 # Set kfold amount for cross-validation
 nFold = 10
-gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, n_jobs=12, refit='F1',
-                    return_train_score=True)
+gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='recall', n_jobs=12, refit='F1',
+                    return_train_score=True, verbose=2)
 
 gCV.fit(X_train, Y_train)
