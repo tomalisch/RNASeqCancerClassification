@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 from imblearn.over_sampling import SMOTE
-from sklearn.pipeline import Pipeline
+from imblearn.pipeline import Pipeline
 from sklearn.decomposition import NMF, PCA
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
@@ -42,7 +42,7 @@ X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.3
 
 # Initialize classifier object for parameter optimization grid search
 gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
-                             learning_rate=0.1, loss='deviance', max_depth=3,
+                             learning_rate=0.1, loss='log_loss', max_depth=3,
                              max_features=None, max_leaf_nodes=None,
                              min_impurity_decrease=0.0,
                              min_samples_leaf=1, min_samples_split=2,
