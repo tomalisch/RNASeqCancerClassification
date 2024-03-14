@@ -12,7 +12,7 @@ import os
 import matplotlib.pyplot as plt
 
 from imblearn.over_sampling import SMOTE
-from imblearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline
 from sklearn.decomposition import NMF, PCA
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
@@ -40,38 +40,8 @@ yData.drop(columns=["Unnamed: 0"], inplace=True)
 # Split data into train and test sets (80/20 split)
 X_train, X_test, Y_train, Y_test = train_test_split( xData, yData, test_size=0.3 )
 
-## Create function for cross validation pipeline
-def grid_pipe(clf, X, Y, params):
-    pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifier', clf) ])
-    score = { 'AUC':'roc_auc', 
-             'ACCURACY':'accuracy',
-           'RECALL':'recall',
-           'PRECISION':'precision',
-           'F1':'f1' }
-    
-    gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=5, scoring=score, n_jobs=12, refit='F1',
-                       return_train_score=True)
-    gCV.fit( X, Y )
-
-    return gCV
-
-# Create list of classifiers to test
-classifiers = [('Logistic Regression',
-  LogisticRegression(C=1.0, class_weight=None, dual=False, fit_intercept=True,
-                     intercept_scaling=1, l1_ratio=None, max_iter=100,
-                     multi_class='auto', n_jobs=None, penalty='l2',
-                     random_state=None, solver='newton-cholesky', tol=0.0001, verbose=0,
-                     warm_start=False)),
- ('RandomForest',
-  RandomForestClassifier()),
-
-  ('SVM',
-   LinearSVC()
-      
-  )
-
- ('Gradient Boosting Classifier',
-  GradientBoostingClassifier(criterion='friedman_mse', init=None,
+# Initialize classifier object for parameter optimization grid search
+gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
                              learning_rate=0.1, loss='deviance', max_depth=3,
                              max_features=None, max_leaf_nodes=None,
                              min_impurity_decrease=0.0,
@@ -80,18 +50,19 @@ classifiers = [('Logistic Regression',
                              n_iter_no_change=None,
                              random_state=None, subsample=1.0, tol=0.0001,
                              validation_fraction=0.1, verbose=0,
-                             warm_start=False))]
+                             warm_start=False)
 
-# Create list of tunable parameters'
-params = [{'classifier__penalty': ('l1', 'l2'), 'classifier__C': (0.01, 0.1, 1.0, 10)},
- {'classifier__n_neighbors': (10, 15, 25)},
- {'classifier__n_estimators': (80, 100, 150, 200), 'min_samples_split': (5, 7, 10, 20)}]
+# Create list of tunable parameters for grid search
+params = [
+ {'classifier__max_depth': (1, 3, 6)},
+ {'classifier__min_impurity_decrease': (0.0, 0.01, 0.1)},{'classifier__min_samples_leaf': (1, 2, 3)}, {'classifier__min_samples_split': (2, 5, 10)}
+ , {'classifier__min_weight_fraction_leaf': (0.0, 0.01, 0.1)}, {'classifier__n_estimators': (10, 100, 200)}, {'classifier__tol': (0.00001, 0.0001, 0.001)} ]
 
-# Loop through classifiers and parameters in grid search
-for param, classifier in zip(params, classifiers):
-    print("Working on {}...".format(classifier[0]))
-    clf = grid_pipe(classifier[1], X_train, Y_train, param) 
-    print("Best parameter for {} is {}".format(classifier[0], clf.best_params_))
-    print("Best `F1` for {} is {}".format(classifier[0], clf.best_score_))
-    print('-'*50)
-    print('\n')
+pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifier', gb) ])
+
+# Set kfold amount for cross-validation
+nFold = 10
+gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, n_jobs=12, refit='F1',
+                    return_train_score=True)
+
+gCV.fit(X_train, Y_train)
