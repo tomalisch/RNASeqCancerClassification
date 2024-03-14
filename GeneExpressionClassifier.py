@@ -62,7 +62,7 @@ pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifi
 
 # Set kfold amount for cross-validation
 nFold = 10
-gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='recall', n_jobs=12, refit='F1',
+gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='recall_weighted', n_jobs=12, refit=True,
                     return_train_score=True, verbose=2)
 
 gCV.fit(X_train, Y_train)
