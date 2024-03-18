@@ -66,3 +66,8 @@ gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='recall
                     return_train_score=True, verbose=2)
 
 gCV.fit(X_train, Y_train)
+
+# Visualize fit of models by hyperparameters
+mean_scores = np.array(gCV.cv_results_["mean_test_score"])
+mean_scores = pd.DataFrame(mean_scores)
+ax = mean_scores.plot.bar()
