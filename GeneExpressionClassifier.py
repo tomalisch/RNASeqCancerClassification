@@ -82,12 +82,12 @@ gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
                              min_weight_fraction_leaf=0.0, n_estimators=100,
                              n_iter_no_change=None,
                              random_state=None, subsample=1.0, tol=0.0001,
-                             validation_fraction=0.1, verbose=0,
+                             validation_fraction=0.2, verbose=0,
                              warm_start=False)
 
 # Create list of tunable parameters for grid search
 params = [
- {'classifier__max_depth': (1, 5)},
+ {'classifier__learning_rate': (0.001, 0.01, 0.1)}, {'classifier__max_depth': (1, 5)},
  {'classifier__min_impurity_decrease': (0.0, 0.01, 0.1)},{'classifier__min_samples_leaf': (1, 2, 5)}, {'classifier__min_samples_split': (2, 5, 10)}
  , {'classifier__min_weight_fraction_leaf': (0.0, 0.01, 0.1)}, {'classifier__n_estimators': (10, 100, 200)}, {'classifier__tol': ( 0.0001, 0.001)} ]
 
