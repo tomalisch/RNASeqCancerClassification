@@ -5,7 +5,7 @@
 # 4) Print output and conclude
 
 ## Dependencies
-import pydna as PyDNA
+import PyDNA
 import pandas as pd
 import numpy as np
 import os
@@ -28,6 +28,7 @@ path = os.getcwd()
 filepathX = os.path.join( path, "TCGA-PANCAN-HiSeq-801x20531/", "data.csv")
 filepathY = os.path.join( path, "TCGA-PANCAN-HiSeq-801x20531/", "labels.csv")
 
+# Note that data are already log1p transformed
 xData = pd.read_csv(filepathX)
 yData = pd.read_csv(filepathY)
 
@@ -37,8 +38,40 @@ xData.drop(columns=["Unnamed: 0"], inplace=True)
 yData.dropna(inplace=True)
 yData.drop(columns=["Unnamed: 0"], inplace=True)
 
-# Split data into train and test sets (70/30 split)
-X_train, X_test, Y_train, Y_test = train_test_split( xData, np.ravel(yData), test_size=0.3 )
+# Split data into train and test sets (80/20 split)
+X_train, X_test, Y_train, Y_test = train_test_split( xData, np.ravel(yData), test_size=0.2 )
+
+# Standard scale outside of pipeline as PCA requires it
+sc = StandardScaler()
+sc.fit(X_train)
+X_train_std = sc.transform(X_train)
+X_test_std = sc.transform(X_test)
+
+# Perform PCA and select #PCs based on explained variance
+pca = PCA()
+# Determine transformed features
+X_train_pca = pca.fit_transform(X_train_std)
+# Determine explained variance using explained_variance_ration_ attribute
+exp_var_pca = pca.explained_variance_ratio_
+# Cumulative sum of eigenvalues; This will be used to create step plot
+# for visualizing the variance explained by each principal component.
+cum_sum_eigenvalues = np.cumsum(exp_var_pca)
+# Create the visualization plot
+plt.bar(range(0,len(exp_var_pca)), exp_var_pca, alpha=0.5, align='center', label='Individual explained variance')
+plt.step(range(0,len(cum_sum_eigenvalues)), cum_sum_eigenvalues, where='mid',label='Cumulative explained variance')
+plt.ylabel('Explained variance ratio')
+plt.xlabel('Principal component index')
+plt.legend(loc='best')
+plt.tight_layout()
+plt.show()
+
+# We will choose 200 PCs here, reaching .85 explained variance.
+pca = PCA(n_components=200)
+# Fit on the train set only
+pca.fit(X_train_std)
+# Apply transform to both the train set and the test set - rename for clarity later in the pipe.
+X_train = pca.transform(X_train_std)
+X_test = pca.transform(X_test_std)
 
 # Initialize classifier object for parameter optimization grid search
 gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
@@ -54,15 +87,15 @@ gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
 
 # Create list of tunable parameters for grid search
 params = [
- {'classifier__max_depth': (1, 3, 6)},
- {'classifier__min_impurity_decrease': (0.0, 0.01, 0.1)},{'classifier__min_samples_leaf': (1, 2, 3)}, {'classifier__min_samples_split': (2, 5, 10)}
- , {'classifier__min_weight_fraction_leaf': (0.0, 0.01, 0.1)}, {'classifier__n_estimators': (10, 100, 200)}, {'classifier__tol': (0.00001, 0.0001, 0.001)} ]
+ {'classifier__max_depth': (1, 5)},
+ {'classifier__min_impurity_decrease': (0.0, 0.01, 0.1)},{'classifier__min_samples_leaf': (1, 2, 5)}, {'classifier__min_samples_split': (2, 5, 10)}
+ , {'classifier__min_weight_fraction_leaf': (0.0, 0.01, 0.1)}, {'classifier__n_estimators': (10, 100, 200)}, {'classifier__tol': ( 0.0001, 0.001)} ]
 
-pipe = Pipeline([ ('sampling', SMOTE()), ('stdsc', StandardScaler()), ('classifier', gb) ])
+pipe = Pipeline([ ('sampling', SMOTE()), ('classifier', gb) ])
 
-# Set kfold amount for cross-validation
+# Set kfold amount for cross-validation, target is cancer among 5 categories - choose F1 score as performance metric
 nFold = 10
-gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='recall_weighted', n_jobs=12, refit=True,
+gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='F1', n_jobs=12, refit=True,
                     return_train_score=True, verbose=2)
 
 gCV.fit(X_train, Y_train)
@@ -71,3 +104,16 @@ gCV.fit(X_train, Y_train)
 mean_scores = np.array(gCV.cv_results_["mean_test_score"])
 mean_scores = pd.DataFrame(mean_scores)
 ax = mean_scores.plot.bar()
+print('Best score: {}'.format(gCV.best_score_))
+print('Best parameters: {}'.format(gCV.best_params_))
+
+# Choose best model parameters based on F1 score and get best model performance on test set
+optimizedModel = gCV.best_estimator_
+
+# Since we use SMOTE, accuraccy is still relevant as a metric
+# Note that test data is already scaled and PCA'd
+y_pred = optimizedModel.predict(X_test)
+
+# Report accuracy
+accuracy = accuracy_score(Y_test, y_pred)
+print("Accuracy:", accuracy)
