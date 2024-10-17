@@ -5,15 +5,16 @@
 # 4) Print output and conclude
 
 ## Dependencies
-import PyDNA
 import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline
 from sklearn.decomposition import NMF, PCA
+from sklearn_evaluation import plot as evalPlot
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from sklearn.linear_model import LogisticRegression
@@ -65,8 +66,12 @@ plt.legend(loc='best')
 plt.tight_layout()
 plt.show()
 
-# We will choose 200 PCs here, reaching .85 explained variance.
-pca = PCA(n_components=200)
+# Determine how many PCs are needed to reach 90% explained variance (or cap at 50 if more would be needed)
+numPCs = np.where(cum_sum_eigenvalues>=0.9)[0][0] if np.where(cum_sum_eigenvalues>=0.9)[0][0]<50 else 50
+print('Choosing {} PCs, reaching {} explained variance'.format(numPCs, cum_sum_eigenvalues[numPCs]))
+
+# Set up PCA
+pca = PCA(n_components=numPCs)
 # Fit on the train set only
 pca.fit(X_train_std)
 # Apply transform to both the train set and the test set - rename for clarity later in the pipe.
@@ -89,14 +94,14 @@ gb = GradientBoostingClassifier(criterion='friedman_mse', init=None,
 params = [
  {'classifier__learning_rate': (0.001, 0.01, 0.1)}, {'classifier__max_depth': (1, 5)},
  {'classifier__min_impurity_decrease': (0.0, 0.01, 0.1)},{'classifier__min_samples_leaf': (1, 2, 5)}, {'classifier__min_samples_split': (2, 5, 10)}
- , {'classifier__min_weight_fraction_leaf': (0.0, 0.01, 0.1)}, {'classifier__n_estimators': (10, 100, 200)}, {'classifier__tol': ( 0.0001, 0.001)} ]
+ , {'classifier__min_weight_fraction_leaf': (0.3, 0.15, 0.1)}, {'classifier__n_estimators': (10, 100, 200)}, {'classifier__tol': ( 0.0001, 0.001)} ]
 
 pipe = Pipeline([ ('sampling', SMOTE()), ('classifier', gb) ])
 
-# Set kfold amount for cross-validation, target is cancer among 5 categories - choose F1 score as performance metric
+# Set kfold amount for cross-validation, target is cancer among 5 categories - choose F1 macro score as performance metric due to imbalanced data
 nFold = 10
-gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='F1', n_jobs=12, refit=True,
-                    return_train_score=True, verbose=2)
+gCV = GridSearchCV( estimator=pipe, param_grid=params, cv=nFold, scoring='f1_macro', n_jobs=12, refit=True,
+                    return_train_score=True, verbose=1)
 
 gCV.fit(X_train, Y_train)
 
@@ -106,14 +111,28 @@ mean_scores = pd.DataFrame(mean_scores)
 ax = mean_scores.plot.bar()
 print('Best score: {}'.format(gCV.best_score_))
 print('Best parameters: {}'.format(gCV.best_params_))
+print('Best model: {}'.format(gCV.best_estimator_))
+###evalPlot.grid_search(gCV.cv_results_, change='n_estimators', kind='bar')
+
 
 # Choose best model parameters based on F1 score and get best model performance on test set
 optimizedModel = gCV.best_estimator_
 
-# Since we use SMOTE, accuraccy is still relevant as a metric
+# Since we use SMOTE, accuracy is still relevant as a metric
 # Note that test data is already scaled and PCA'd
 y_pred = optimizedModel.predict(X_test)
 
-# Report accuracy
+# Report confusion matrix
+confusion_matrix = confusion_matrix(Y_test, y_pred)
+print("Confusion matrix:\n{}".format(confusion_matrix))
+# Classification report
+labels = range(len(np.unique(Y_test)))
+target_names = np.unique(Y_test)
+report = classification_report(Y_test, y_pred,labels=labels,target_names=target_names,output_dict=True)
+print("Classification report:\n{}".format(report))
+# Plot heatmap of classification report
+sns.heatmap(pd.DataFrame(report).iloc[:-1, :].T, annot=True)
+
+# Since we use SMOTE, accuracy is still relevant as a metric
 accuracy = accuracy_score(Y_test, y_pred)
 print("Accuracy:", accuracy)
